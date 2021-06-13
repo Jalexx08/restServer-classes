@@ -1,42 +1,71 @@
 const { response, request } = require("express");
+const bcryptjs = require("bcryptjs");
 
-const getUsers = (req = request, res = response) => {
-	const { q, master, nombre, apikey,poder="agua" } = req.query;
+const User = require("../models/user");
+
+const getUsers = async (req = request, res = response) => {
+	const { limit = 5, from = 0 } = req.query;
+	const query = { state: true };
+
+	const [ total, users] = await Promise.all([
+		User.countDocuments(query),
+		User.find(query).skip(Number(from)).limit(Number(limit))
+	])
+
 	res.json({
-		msg: "get API - controller",
-		q,
-		nombre,
-		apikey,
-        poder
+		total,
+		users
 	});
 };
 
-const postUsers = (req, res = response) => {
-	const body = req.body;
+const postUsers = async (req = request, res = response) => {
+	const { name, email, password, role } = req.body;
+	const user = new User({ name, email, password, role });
+
+	//* Encriptar el password
+	const salt = bcryptjs.genSaltSync();
+	user.password = bcryptjs.hashSync(password, salt);
+
+	//* Guardar en DB
+	await user.save();
+
 	res.json({
-		msg: "post API - controller",
-		body,
+		user,
 	});
 };
 
-const putUsers = (req, res = response) => {
-	const id = req.params.id;
+const putUsers = async (req = request, res = response) => {
+	const { id } = req.params;
+	const { _id, password, google, ...resto } = req.body;
+
+	//TODO validar contra DB
+
+	if (password) {
+		//* Encriptar el password
+		const salt = bcryptjs.genSaltSync();
+		resto.password = bcryptjs.hashSync(password, salt);
+	}
+
+	const user = await User.findByIdAndUpdate(id, resto);
+
 	res.json({
-		msg: "put API - controller",
-		id,
+		user,
 	});
 };
 
-const patchUsers = (req, res = response) => {
+const patchUsers = (req = request, res = response) => {
+	const { id } = req.params;
 	res.json({
 		msg: "patch API - controller",
+		id
 	});
 };
 
-const deleteUsers = (req, res = response) => {
-	res.json({
-		msg: "delete API - controller",
-	});
+const deleteUsers = async(req = request, res = response) => {
+	const { id } = req.params;
+
+	const user = await User.findByIdAndUpdate(id, { state: false })
+	res.json(user);
 };
 
 module.exports = {
